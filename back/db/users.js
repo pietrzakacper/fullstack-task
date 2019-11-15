@@ -1,26 +1,26 @@
 const uuidv1 = require('uuid/v1')
 const crypto = require('crypto')
 
-const db = {}
 /*
-    DB {
+    UsersDB {
         [username: string]: {
             salt: string,
             passwordHash: string,
-            sessionId: string
+            isAdmin: boolean
         }
     }
 */
+const usersDB = {}
 
-createInitialUser()
+async function createUser(username, password, isAdmin = false) {
+    const salt = generateSalt()
+    const passwordHash = hashPassword(password, salt)
 
-function createInitialUser() {
-    const {  USER , PASSWORD } = process.env
+    usersDB[username] = { salt, passwordHash, isAdmin }
+}
 
-    const salt = uuidv1()
-    const passwordHash = hashPassword(PASSWORD, salt)
-
-    db[USER] = { salt, passwordHash }
+function generateSalt() {
+    return crypto.randomBytes(32).toString('hex')
 }
 
 function hashPassword(password, salt) {
@@ -28,25 +28,26 @@ function hashPassword(password, salt) {
 }
 
 // This function should have a relatively constant time of execution, regardless of the parameters to prevent guessing correct username by the attacker based on response time
-const mockSalt = uuidv1()
-function getUser(username, password) {
-    const user = db[username]
+const mockSalt = generateSalt()
+async function authUser(username, password) {
+    const user = usersDB[username]
 
     const salt = (user && user.salt) || mockSalt
     // mockSalt is used for having the same hashing time regardless of whether the user exists or not
     const inputPasswordHash = hashPassword(password, salt)
-    if(!user || inputPasswordHash !== user.passwordHash) {
-        throw new Error('Incorrect username or password')
+    if(user && inputPasswordHash === user.passwordHash) {
+        return true
     }
 
-    return user
+    return false
 }
 
-function createSession(username) {
-    return db[username].sessionId = uuidv1()
+async function fetchUser(username) {
+    return usersDB[username]
 }
 
 module.exports = {
-    getUser,
-    createSession
+    authUser,
+    fetchUser,
+    createUser
 }
